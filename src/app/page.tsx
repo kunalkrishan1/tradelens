@@ -332,7 +332,9 @@ export default function Dashboard() {
   ];
 
   const handleImportSuccess = (importedTrades: ParsedTrade[]) => {
-    setTrades(importedTrades);
+    // Always sort trades newest-first so the "Recent Trades" table shows today's trades at the top
+    const sortedTrades = [...importedTrades].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    setTrades(sortedTrades);
     setIsImportModalOpen(false);
   };
 
