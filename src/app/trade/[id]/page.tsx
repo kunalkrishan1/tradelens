@@ -81,6 +81,7 @@ export default function TradeDetail({ params }: { params: { id: string } }) {
       title: 'Stop Loss',
     });
 
+    // @ts-ignore - Ignore lightweight-charts strict generic type mismatch
     createSeriesMarkers(candlestickSeries, [
       { time: '2026-05-15', position: 'belowBar', color: '#3b82f6', shape: 'arrowUp', text: 'Buy' },
       { time: '2026-05-19', position: 'aboveBar', color: '#eab308', shape: 'arrowDown', text: 'Exit' },
