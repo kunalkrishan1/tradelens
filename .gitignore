@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Generated Documentation & Scripts
+*.pdf
+*_shot.png
+generate_*.js
+take_screenshot.js
+All_Code*.md
+Chat_Transcript.md
+TradeLens_Engineering_Masterclass.md
+TradeLens_File_Architecture.md

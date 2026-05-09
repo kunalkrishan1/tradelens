@@ -8,16 +8,10 @@ import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   PieChart, Pie, BarChart, Bar, Cell, ScatterChart, Scatter, ZAxis
 } from 'recharts';
-import { ResponsiveGridLayout, Layout } from "react-grid-layout";
+import { ResponsiveGridLayout, Layout, useContainerWidth } from "react-grid-layout";
+import html2canvas from 'html2canvas';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
-
-// Mock Data
-const data = [
-  { pnl: 400, daily: 400 }, { pnl: 300, daily: -100 }, { pnl: 600, daily: 300 },
-  { pnl: 800, daily: 200 }, { pnl: 500, daily: -300 }, { pnl: 900, daily: 400 },
-  { pnl: 1100, daily: 200 }
-];
 
 const radarData = [
   { subject: 'Discipline', A: 90, fullMark: 100 },
@@ -25,11 +19,6 @@ const radarData = [
   { subject: 'Risk Mgmt', A: 95, fullMark: 100 },
   { subject: 'Execution', A: 80, fullMark: 100 },
   { subject: 'Review', A: 75, fullMark: 100 },
-];
-
-const gaugeData = [
-  { name: 'Win', value: 68, fill: 'var(--success-color)' },
-  { name: 'Loss', value: 32, fill: 'var(--danger-color)' }
 ];
 
 const scatterData = [
@@ -52,22 +41,26 @@ const pfData = [
 ];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label, currency = '$' }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
+    const format = (val: number) => {
+      const abs = Math.abs(val).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      return currency === '$' ? `$${abs}` : `${abs}¢`;
+    };
     return (
       <div style={{ backgroundColor: 'var(--panel-bg)', border: '1px solid var(--panel-border)', borderRadius: '8px', padding: '12px', backdropFilter: 'blur(10px)', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '8px' }}>{label}</p>
         <div className="flex justify-between gap-6 mb-1">
           <span style={{ fontSize: '0.9rem' }}>Cumulative P&L:</span>
           <span style={{ fontWeight: 600, color: data.pnl >= 0 ? 'var(--success-color)' : 'var(--danger-color)' }}>
-            ${data.pnl.toLocaleString()}
+            {data.pnl >= 0 ? '+' : '-'}{format(data.pnl)}
           </span>
         </div>
         <div className="flex justify-between gap-6">
           <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Daily Net:</span>
           <span style={{ fontSize: '0.9rem', color: data.daily >= 0 ? 'var(--success-color)' : 'var(--danger-color)' }}>
-            {data.daily >= 0 ? '+' : '-'}${Math.abs(data.daily).toLocaleString()}
+            {data.daily >= 0 ? '+' : '-'}{format(data.daily)}
           </span>
         </div>
       </div>
@@ -77,20 +70,24 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ScatterTooltip = ({ active, payload }: any) => {
+const ScatterTooltip = ({ active, payload, currency = '$' }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     const hour = Math.floor(data.x);
     const minutes = Math.floor((data.x - hour) * 60);
     const timeStr = `${hour}:${minutes.toString().padStart(2, '0')}`;
+    const format = (val: number) => {
+      const abs = Math.abs(val).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      return currency === '$' ? `$${abs}` : `${abs}¢`;
+    };
     
     return (
-      <div style={{ backgroundColor: 'var(--panel-bg)', border: '1px solid var(--panel-border)', borderRadius: '8px', padding: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
+      <div style={{ backgroundColor: 'var(--panel-bg)', border: '1px solid var(--panel-border)', borderRadius: '12px', padding: '12px', backdropFilter: 'blur(10px)', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '8px' }}>Time: {timeStr}</p>
         <div className="flex justify-between gap-6">
           <span style={{ fontSize: '0.9rem' }}>P&L:</span>
           <span style={{ fontWeight: 600, color: data.y >= 0 ? 'var(--success-color)' : 'var(--danger-color)' }}>
-            {data.y >= 0 ? '+' : '-'}${Math.abs(data.y).toLocaleString()}
+            {data.y >= 0 ? '+' : '-'}{format(data.y)}
           </span>
         </div>
       </div>
@@ -230,9 +227,22 @@ const customPresets: Record<string, Layout> = {
 
 export default function Dashboard() {
   const router = useRouter();
+  const { width, containerRef } = useContainerWidth();
   const [mounted, setMounted] = useState(false);
   const [timeRange, setTimeRange] = useState<'1W' | '1M' | 'YTD'>('1M');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [currency, setCurrency] = useState('$');
+
+  useEffect(() => {
+    const savedCurrency = localStorage.getItem('tradelens_currency');
+    if (savedCurrency) setCurrency(savedCurrency);
+  }, []);
+
+  const formatCurrency = (val: number, hideSign = false) => {
+    const absVal = Math.abs(val).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const sign = val < 0 && !hideSign ? '-' : (val > 0 && !hideSign ? '+' : '');
+    return currency === '$' ? `${sign}$${absVal}` : `${sign}${absVal}¢`;
+  };
   
   // Layout state
   const [layout, setLayout] = useState<Layout>(defaultLayout);
@@ -248,9 +258,41 @@ export default function Dashboard() {
     localStorage.setItem('tradelens_dashboard_preset', name);
   };
 
-  const [trades, setTrades] = useState(recentTrades);
+  const [trades, setTrades] = useState<typeof recentTrades>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('tradelens_trades_data');
+      if (saved) return JSON.parse(saved);
+    }
+    return recentTrades;
+  });
 
-  const { totalPnL, winRate, profitFactor, expectancy, avgWinLossRatio, winRateNum, grossLossNum, grossProfitNum } = useMemo(() => {
+  const [startingBalance, setStartingBalance] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      return parseFloat(localStorage.getItem('tradelens_starting_balance') || '0');
+    }
+    return 0;
+  });
+
+  const [isEditingBalance, setIsEditingBalance] = useState(false);
+  const [balanceInput, setBalanceInput] = useState("");
+  const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
+  const [brokerStatus, setBrokerStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [brokerErrorMessage, setBrokerErrorMessage] = useState("");
+
+  const saveStartingBalance = () => {
+    const parsed = parseFloat(balanceInput);
+    if (!isNaN(parsed)) {
+      setStartingBalance(parsed);
+      localStorage.setItem('tradelens_starting_balance', parsed.toString());
+    }
+    setIsEditingBalance(false);
+  };
+
+  useEffect(() => {
+    localStorage.setItem('tradelens_trades_data', JSON.stringify(trades));
+  }, [trades]);
+
+  const { totalPnL, winRate, profitFactor, expectancy, avgWinLossRatio, winRateNum, grossProfitNum } = useMemo(() => {
     let wins = 0;
     let losses = 0;
     let grossProfit = 0;
@@ -259,17 +301,20 @@ export default function Dashboard() {
 
     trades.forEach(t => {
       totalPnl += t.pnl;
-      if (t.pnl >= 0) {
+      if (t.pnl > 0) {
         wins++;
         grossProfit += t.pnl;
-      } else {
+      } else if (t.pnl < 0) {
         losses++;
         grossLoss += Math.abs(t.pnl);
       }
     });
 
     const total = trades.length;
-    const wr = total > 0 ? (wins / total) : 0;
+    // Standard Win Rate: Wins / (Wins + Losses) to exclude breakevens from penalizing the rate, 
+    // or Wins / Total. Usually Wins / (Wins + Losses) is preferred by traders.
+    const validTrades = wins + losses;
+    const wr = validTrades > 0 ? (wins / validTrades) : 0;
     const wrStr = Math.round(wr * 100) + '%';
     const pf = grossLoss > 0 ? (grossProfit / grossLoss) : (grossProfit > 0 ? 99 : 0);
     const avgW = wins > 0 ? grossProfit / wins : 0;
@@ -296,7 +341,7 @@ export default function Dashboard() {
       return Array.from({ length: 90 }).map((_, i) => {
         const date = new Date(2026, 2, 10 + i);
         const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/purity
         const dailyPnl = Math.random() > 0.4 ? Math.floor(Math.random() * 800) : -Math.floor(Math.random() * 600);
         cumulative += dailyPnl;
         return { date: dateStr, daily: dailyPnl, pnl: cumulative };
@@ -362,17 +407,52 @@ export default function Dashboard() {
     document.body.removeChild(link);
   };
 
+  const exportImage = async () => {
+    if (!containerRef.current) return;
+    try {
+      // Temporarily hide the layout handles/borders for a clean screenshot
+      const originalMode = isEditMode;
+      if (isEditMode) setIsEditMode(false);
+      
+      // Wait a tiny bit for React to render the clean state
+      await new Promise(r => setTimeout(r, 100));
+
+      const canvas = await html2canvas(containerRef.current, {
+        backgroundColor: '#050505',
+        scale: 2, // High resolution
+        useCORS: true,
+        logging: false
+      });
+      
+      const url = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `tradelens-performance-${new Date().toISOString().split('T')[0]}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      if (originalMode) setIsEditMode(true);
+    } catch (err) {
+      console.error('Failed to export dashboard image:', err);
+    }
+  };
+
   useEffect(() => {
     // Load saved layout from localStorage if it exists
     const savedLayout = localStorage.getItem('tradelens_dashboard_layout_v2');
     const savedPreset = localStorage.getItem('tradelens_dashboard_preset_v2');
     if (savedPreset) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveLayoutName(savedPreset);
     }
     if (savedLayout) {
       try {
-        setLayout(JSON.parse(savedLayout));
-      } catch (e) {
+        const parsed = JSON.parse(savedLayout);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setLayout(parsed);
+        }
+      } catch {
         console.error("Failed to parse saved layout");
       }
     }
@@ -430,15 +510,34 @@ export default function Dashboard() {
             )}
           </button>
           
+          <button 
+            className="btn btn-outline" 
+            onClick={() => {
+              const newCur = currency === '$' ? '¢' : '$';
+              setCurrency(newCur);
+              localStorage.setItem('tradelens_currency', newCur);
+            }}
+            style={{ fontWeight: 600, width: '40px', padding: 0, justifyContent: 'center' }}
+          >
+            {currency}
+          </button>
+
           <div style={{ width: '1px', background: 'var(--panel-border)', margin: '0 8px' }}></div>
 
+          <button className="btn btn-outline" onClick={() => setIsBrokerModalOpen(true)} title="Connect Live Broker API">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            Connect MT5
+          </button>
           <button className="btn btn-primary" onClick={() => setIsImportModalOpen(true)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-            Import
+            Import Trades CSV
           </button>
-          <button className="btn btn-outline" onClick={exportToCsv}>
+          <button className="btn btn-outline" onClick={exportImage} title="Download Dashboard Image">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+            Screenshot
+          </button>
+          <button className="btn btn-outline" onClick={exportToCsv} title="Export Data as CSV">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            Export
           </button>
           <button className="btn btn-primary">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -448,33 +547,57 @@ export default function Dashboard() {
       </header>
 
       {/* Draggable Dashboard Grid Container */}
-      <div style={{ margin: '0 -10px' }}>
+      <div style={{ margin: '0 -10px' }} ref={containerRef}>
         <ResponsiveGridLayout
           className="layout"
+          width={width}
           layouts={{ lg: layout, md: layout, sm: layout, xs: layout, xxs: layout }}
           breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
           cols={{ lg: 12, md: 12, sm: 12, xs: 12, xxs: 12 }}
           rowHeight={80}
           onLayoutChange={onLayoutChange}
           draggableHandle=".drag-handle"
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           {...({ isDraggable: isEditMode, isResizable: isEditMode } as any)}
           margin={[20, 20]}
           containerPadding={[10, 10]}
         >
           
-          {/* 1. Net P&L */}
+          {/* 1. Account Balance & P&L */}
           <div key="1" className={`glass-panel relative ${isEditMode ? 'ring-2 ring-indigo-500' : ''}`} style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             {isEditMode && (
               <div className="drag-handle" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '24px', cursor: 'move', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.1)', borderTopLeftRadius: '12px', borderTopRightRadius: '12px', zIndex: 10 }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
               </div>
             )}
-            <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '8px' }}>Net P&L</span>
-            <div style={{ fontSize: '2.5rem', fontWeight: 700, color: totalPnL >= 0 ? 'var(--success-color)' : 'var(--danger-color)' }}>
-              {totalPnL >= 0 ? '+' : '-'}${Math.abs(totalPnL).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+            <div className="flex justify-between items-start mb-2">
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Live Account Balance</span>
+              <button onClick={() => { setIsEditingBalance(true); setBalanceInput(startingBalance.toString()); }} style={{ background: 'transparent', border: 'none', color: 'var(--accent-color)', cursor: 'pointer', fontSize: '0.75rem', padding: '2px 6px', borderRadius: '4px' }} className="hover:bg-white/5">
+                Set Deposit
+              </button>
             </div>
-            <div className="flex justify-start gap-4 mt-2 text-xs text-gray-400">
-              <span>Gross Profit: <span className="text-white">${grossProfitNum.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></span>
+            
+            {isEditingBalance ? (
+              <div className="flex gap-2 mb-2">
+                <input 
+                  type="number" 
+                  value={balanceInput}
+                  onChange={(e) => setBalanceInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && saveStartingBalance()}
+                  className="input-field" 
+                  style={{ padding: '4px 8px', fontSize: '1rem' }} 
+                  autoFocus 
+                />
+                <button onClick={saveStartingBalance} className="btn btn-primary" style={{ padding: '4px 8px' }}>Save</button>
+              </div>
+            ) : (
+              <div style={{ fontSize: '2.2rem', fontWeight: 700, color: 'white', marginBottom: '4px' }}>
+                {formatCurrency(startingBalance + totalPnL, true)}
+              </div>
+            )}
+            
+            <div className="flex justify-start gap-4 mt-1 text-xs">
+              <span style={{ color: 'var(--text-secondary)' }}>Net P&L: <span className={totalPnL >= 0 ? "text-success" : "text-danger"} style={{ fontWeight: 600 }}>{totalPnL >= 0 ? '+' : '-'}{formatCurrency(totalPnL)}</span></span>
             </div>
           </div>
 
@@ -486,7 +609,7 @@ export default function Dashboard() {
               </div>
             )}
             <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '8px' }}>Trade Expectancy</span>
-            <div style={{ fontSize: '2rem', fontWeight: 700, color: 'white' }}>${expectancy.toFixed(2)}</div>
+            <div style={{ fontSize: '2rem', fontWeight: 700, color: 'white' }}>{formatCurrency(expectancy, true)}</div>
           </div>
 
           {/* 3. Profit Factor */}
@@ -584,9 +707,9 @@ export default function Dashboard() {
                 <button onClick={() => setTimeRange('YTD')} style={{ padding: '2px 8px', background: timeRange === 'YTD' ? 'var(--accent-color)' : 'transparent', border: timeRange === 'YTD' ? 'none' : '1px solid var(--panel-border)', borderRadius: '4px', fontSize: '0.75rem', color: timeRange === 'YTD' ? 'white' : 'var(--text-secondary)' }}>YTD</button>
               </div>
             </div>
-            <div style={{ flex: 1, width: '100%', marginLeft: '-20px' }}>
+            <div style={{ flex: 1, width: '100%' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={filteredData}>
+                <AreaChart data={filteredData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorPnl" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="var(--success-color)" stopOpacity={0.4}/>
@@ -595,9 +718,9 @@ export default function Dashboard() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="date" stroke="var(--text-secondary)" fontSize={10} tickLine={false} axisLine={false} minTickGap={20} />
-                  <YAxis stroke="var(--text-secondary)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `$${val}`} />
+                  <YAxis stroke="var(--text-secondary)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => currency === '$' ? `$${val}` : `${val}¢`} />
                   <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CustomTooltip currency={currency} />} />
                   <Area type="monotone" dataKey="pnl" stroke="var(--success-color)" strokeWidth={2} fillOpacity={1} fill="url(#colorPnl)" />
                 </AreaChart>
               </ResponsiveContainer>
@@ -614,14 +737,14 @@ export default function Dashboard() {
             <div className="flex justify-between items-center mb-4">
               <span style={{ fontSize: '1.1rem', fontWeight: 600 }}>Net daily P&L</span>
             </div>
-            <div style={{ flex: 1, width: '100%', marginLeft: '-20px' }}>
+            <div style={{ flex: 1, width: '100%' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={filteredData.slice(-14)}> {/* Show last 14 days for clarity */}
+                <BarChart data={filteredData.slice(-14)} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}> {/* Show last 14 days for clarity */}
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="date" stroke="var(--text-secondary)" fontSize={10} tickLine={false} axisLine={false} />
-                  <YAxis stroke="var(--text-secondary)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `$${val}`} />
+                  <YAxis stroke="var(--text-secondary)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => currency === '$' ? `$${val}` : `${val}¢`} />
                   <ReferenceLine y={0} stroke="rgba(255,255,255,0.2)" />
-                  <Tooltip content={<CustomTooltip />} cursor={{fill: 'rgba(255,255,255,0.05)'}} />
+                  <Tooltip content={<CustomTooltip currency={currency} />} cursor={{fill: 'rgba(255,255,255,0.05)'}} />
                   <Bar dataKey="daily" radius={[2, 2, 2, 2]}>
                     {filteredData.slice(-14).map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.daily >= 0 ? 'var(--success-color)' : 'var(--danger-color)'} opacity={0.8} />
@@ -684,18 +807,23 @@ export default function Dashboard() {
             <div className="flex justify-between items-center mb-4">
               <span style={{ fontSize: '1.1rem', fontWeight: 600 }}>Trade time performance</span>
             </div>
-            <div style={{ flex: 1, width: '100%', marginLeft: '-20px' }}>
+            <div style={{ flex: 1, width: '100%' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                <ScatterChart margin={{ top: 20, right: 10, bottom: 0, left: -20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis type="number" dataKey="x" name="Hour" domain={[9, 16]} tickFormatter={(val) => `${val}:00`} stroke="var(--text-secondary)" fontSize={10} tickLine={false} axisLine={false} />
-                  <YAxis type="number" dataKey="y" name="P&L" stroke="var(--text-secondary)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `$${val}`} />
-                  <ZAxis type="number" dataKey="z" range={[50, 50]} />
+                  <YAxis type="number" dataKey="y" name="P&L" stroke="var(--text-secondary)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => currency === '$' ? `$${val}` : `${val}¢`} />
+                  <ZAxis type="number" dataKey="z" range={[80, 80]} />
                   <ReferenceLine y={0} stroke="rgba(255,255,255,0.2)" />
-                  <Tooltip content={<ScatterTooltip />} cursor={{strokeDasharray: '3 3'}} />
+                  <Tooltip content={<ScatterTooltip currency={currency} />} cursor={{strokeDasharray: '3 3', stroke: 'rgba(255,255,255,0.1)'}} />
                   <Scatter name="Trades" data={scatterData}>
                     {scatterData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.y >= 0 ? 'var(--success-color)' : 'var(--danger-color)'} opacity={0.7} />
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.y >= 0 ? 'var(--success-color)' : 'var(--danger-color)'} 
+                        opacity={0.8} 
+                        style={{ filter: `drop-shadow(0px 0px 8px ${entry.y >= 0 ? '#10b981' : '#ef4444'})` }} 
+                      />
                     ))}
                   </Scatter>
                 </ScatterChart>
@@ -707,6 +835,98 @@ export default function Dashboard() {
       </div>
 
       <CSVImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onImportSuccess={handleImportSuccess} />
+
+      {/* MT5 Cloud Connection Modal */}
+      {isBrokerModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="glass-panel fade-in" style={{ width: '100%', maxWidth: '450px', padding: '32px' }}>
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-2">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-color)" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                <h2 style={{ fontSize: '1.4rem' }}>Connect MetaTrader 5</h2>
+              </div>
+              <button onClick={() => { setIsBrokerModalOpen(false); setBrokerStatus('idle'); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '24px', lineHeight: 1.5 }}>
+              Connect directly to your broker's server via MetaApi cloud to automatically sync your mobile trades.
+            </p>
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setBrokerStatus('loading');
+              const formData = new FormData(e.currentTarget);
+              try {
+                const res = await fetch('/api/metaapi', {
+                  method: 'POST',
+                  body: JSON.stringify(Object.fromEntries(formData)),
+                  headers: { 'Content-Type': 'application/json' }
+                });
+                
+                let data;
+                try {
+                  data = await res.json();
+                } catch (e) {
+                  throw new Error("Server returned an invalid response (not JSON). Try restarting your Next.js server.");
+                }
+                
+                if (res.ok && data.success) {
+                  setBrokerStatus('success');
+                  if (data.trades && data.trades.length > 0) {
+                    setTrades(prev => {
+                      const existingIds = new Set(prev.map((t: any) => t.id));
+                      const newTrades = data.trades.filter((t: any) => !existingIds.has(t.id));
+                      return [...newTrades, ...prev];
+                    });
+                  }
+                } else {
+                  console.error(data.error);
+                  setBrokerErrorMessage(data.error || 'Connection failed.');
+                  setBrokerStatus('error');
+                }
+              } catch (err: any) {
+                console.error(err);
+                setBrokerErrorMessage(err.message || 'Network error occurred.');
+                setBrokerStatus('error');
+              }
+            }} className="flex flex-col gap-4">
+              
+              <div className="flex flex-col gap-2">
+                <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Broker Server Name</label>
+                <input name="server" className="input-field" placeholder="e.g. Exness-Real9" required />
+              </div>
+              
+              <div className="flex flex-col gap-2">
+                <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>MT5 Account Login</label>
+                <input name="login" type="number" className="input-field" placeholder="e.g. 10293847" required />
+              </div>
+              
+              <div className="flex flex-col gap-2">
+                <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Investor Password (Read-Only)</label>
+                <input name="password" type="password" className="input-field" placeholder="••••••••" required />
+              </div>
+
+              {brokerStatus === 'error' && (
+                <div style={{ color: 'var(--danger-color)', fontSize: '0.85rem', marginTop: '8px', padding: '8px', background: 'rgba(239,68,68,0.1)', borderRadius: '6px' }}>
+                  {brokerErrorMessage}
+                </div>
+              )}
+              
+              {brokerStatus === 'success' && (
+                <div style={{ color: 'var(--success-color)', fontSize: '0.85rem', marginTop: '8px', padding: '8px', background: 'rgba(16,185,129,0.1)', borderRadius: '6px' }}>
+                  ✓ Secure connection established! Syncing trades...
+                </div>
+              )}
+
+              <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '16px', justifyContent: 'center' }} disabled={brokerStatus === 'loading' || brokerStatus === 'success'}>
+                {brokerStatus === 'loading' ? 'Authenticating with Server...' : brokerStatus === 'success' ? 'Connected' : 'Establish Cloud Connection'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 const mockTradeHistory = [
   { id: 'T-1049', symbol: 'NVDA', side: 'LONG', open: '2026-05-08 09:30', close: '2026-05-08 09:45', size: 200, entry: 945.20, exit: 958.40, pnl: 2640.00, return: 1.39, rr: '2.5R', tags: ['Breakout'], note: 'Perfect entry on the 5m pullback.', hasChart: true },
@@ -16,10 +16,45 @@ const mockTradeHistory = [
 export default function Journal() {
   const [filter, setFilter] = useState('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [trades, setTrades] = useState<any[]>(mockTradeHistory);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('tradelens_trades_data');
+    if (saved) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTrades(JSON.parse(saved));
+    }
+  }, []);
+
+  const updateTradeNote = (id: string, newNote: string) => {
+    const updatedTrades = trades.map((t: any) => t.id === id ? { ...t, note: newNote } : t);
+    setTrades(updatedTrades);
+    localStorage.setItem('tradelens_trades_data', JSON.stringify(updatedTrades));
+  };
+
+  const normalizedTrades = useMemo(() => {
+    return trades.map(t => ({
+      id: t.id,
+      symbol: t.symbol,
+      side: t.side || t.type || 'UNKNOWN',
+      open: t.open || t.date || '-',
+      close: t.close || '-',
+      size: t.size || '-',
+      entry: t.entry || 0,
+      exit: t.exit || 0,
+      pnl: t.pnl || 0,
+      return: t.return || 0,
+      rr: t.rr || '-',
+      tags: t.tags || [],
+      note: t.note || '',
+      hasChart: t.hasChart || false
+    }));
+  }, [trades]);
 
   const filteredTrades = filter === 'All' 
-    ? mockTradeHistory 
-    : mockTradeHistory.filter(t => t.side === filter || t.pnl > 0 && filter === 'Winning' || t.pnl < 0 && filter === 'Losing');
+    ? normalizedTrades 
+    : normalizedTrades.filter(t => t.side === filter || (t.pnl > 0 && filter === 'Winning') || (t.pnl < 0 && filter === 'Losing'));
 
   return (
     <div className="flex flex-col gap-8 fade-in" style={{ animation: 'fadeIn 0.5s ease-out' }}>
@@ -109,9 +144,9 @@ export default function Journal() {
                   </td>
                   <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{trade.open}</td>
                   <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{trade.close}</td>
-                  <td>{trade.size}</td>
-                  <td>${trade.entry.toFixed(2)}</td>
-                  <td>${trade.exit.toFixed(2)}</td>
+                  <td>{trade.size === '-' ? '-' : trade.size}</td>
+                  <td>{trade.entry ? '$' + Number(trade.entry).toFixed(2) : '-'}</td>
+                  <td>{trade.exit ? '$' + Number(trade.exit).toFixed(2) : '-'}</td>
                   <td className={trade.pnl > 0 ? 'text-success' : 'text-danger'} style={{ fontWeight: 600 }}>
                     {trade.pnl > 0 ? '+' : '-'}${Math.abs(trade.pnl).toFixed(2)}
                   </td>
@@ -121,14 +156,33 @@ export default function Journal() {
                   </td>
                   <td>
                     <div className="flex gap-1 flex-wrap">
-                      {trade.tags.map(tag => (
+                      {trade.tags.map((tag: string) => (
                         <span key={tag} className="badge" style={{ background: 'rgba(255,255,255,0.05)' }}>{tag}</span>
                       ))}
                     </div>
                   </td>
-                  <td style={{ maxWidth: '200px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  <td style={{ maxWidth: '250px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                     <div className="flex items-center gap-2">
-                      {trade.note}
+                      <input 
+                        type="text"
+                        defaultValue={trade.note}
+                        placeholder="Click to add note..."
+                        onBlur={(e) => updateTradeNote(trade.id, e.target.value)}
+                        style={{ 
+                          background: 'transparent', 
+                          border: '1px solid transparent', 
+                          color: 'inherit', 
+                          width: '100%', 
+                          outline: 'none', 
+                          padding: '4px 8px', 
+                          borderRadius: '6px', 
+                          transition: 'all 0.2s' 
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.border = '1px solid var(--accent-color)';
+                          e.target.style.background = 'rgba(255,255,255,0.05)';
+                        }}
+                      />
                       {trade.hasChart && (
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-color)" strokeWidth="2" style={{ flexShrink: 0, cursor: 'pointer' }}><title>View Chart Screenshot</title><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                       )}

@@ -1,28 +1,47 @@
 "use client";
 
-import { useState } from 'react';
-
-// Mock data for the calendar
-const mockDays = Array.from({ length: 31 }).map((_, i) => {
-  const day = i + 1;
-  const isWeekend = (day + 4) % 7 === 6 || (day + 4) % 7 === 0; // Assuming month starts on Friday
-  
-  if (isWeekend) return { day, isWeekend: true, pnl: 0, trades: 0, emotion: 'N/A' };
-  
-  // Random performance generator
-  const isGreen = Math.random() > 0.35; // 65% win rate days
-  const pnl = isGreen ? Math.floor(Math.random() * 2500 + 200) : -Math.floor(Math.random() * 800 + 100);
-  const trades = Math.floor(Math.random() * 4 + 1);
-  const emotion = isGreen ? 'Calm & Focused' : (pnl < -500 ? 'Revenge / Angry' : 'FOMO / Impulsive');
-  
-  // Future days
-  if (day > 12) return { day, isWeekend: false, pnl: null, trades: 0, emotion: 'N/A' };
-  
-  return { day, isWeekend: false, pnl, trades, emotion };
-});
+import { useState, useEffect, useMemo } from 'react';
 
 export default function Calendar() {
   const [hoveredDay, setHoveredDay] = useState<number | null>(null);
+  const [trades, setTrades] = useState<any[]>([]);
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  useEffect(() => {
+    const saved = localStorage.getItem('tradelens_trades_data');
+    if (saved) {
+      setTrades(JSON.parse(saved));
+    }
+  }, []);
+
+  const dailyStats = useMemo(() => {
+    const stats: Record<string, { pnl: number, trades: number, emotion: string }> = {};
+    trades.forEach(t => {
+      const d = new Date(t.date);
+      if (isNaN(d.getTime())) return;
+      
+      const day = d.getDate();
+      const month = d.getMonth();
+      const year = d.getFullYear();
+      
+      const key = `${year}-${month}-${day}`;
+      if (!stats[key]) {
+        stats[key] = { pnl: 0, trades: 0, emotion: 'Calm & Focused' };
+      }
+      stats[key].pnl += t.pnl;
+      stats[key].trades += 1;
+      
+      if (stats[key].pnl < -100) stats[key].emotion = 'Frustrated';
+      if (stats[key].pnl < -500) stats[key].emotion = 'Revenge / Angry';
+    });
+    return stats;
+  }, [trades]);
+
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
 
   return (
     <div className="flex flex-col gap-8 fade-in" style={{ animation: 'fadeIn 0.5s ease-out' }}>
@@ -36,7 +55,21 @@ export default function Calendar() {
         {/* Calendar Grid */}
         <div className="col-span-8 glass-panel flex flex-col gap-4">
           <div className="flex justify-between items-center mb-2">
-            <h2 style={{ fontSize: '1.25rem' }}>May 2026</h2>
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setCurrentDate(new Date(year, month - 1, 1))}
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.2rem' }}
+              >
+                &larr;
+              </button>
+              <h2 style={{ fontSize: '1.25rem', minWidth: '140px', textAlign: 'center' }}>{monthName}</h2>
+              <button 
+                onClick={() => setCurrentDate(new Date(year, month + 1, 1))}
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.2rem' }}
+              >
+                &rarr;
+              </button>
+            </div>
             <div className="flex gap-4 items-center" style={{ fontSize: '0.85rem' }}>
               <div className="flex items-center gap-2">
                 <div style={{ width: '12px', height: '12px', background: 'var(--success-color)', borderRadius: '2px', opacity: 0.8 }}></div> 
@@ -54,23 +87,28 @@ export default function Calendar() {
               <div key={day} style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600, paddingBottom: '8px' }}>{day}</div>
             ))}
             
-            {/* Empty days for offset (May 2026 starts on Friday) */}
-            {Array.from({ length: 5 }).map((_, i) => <div key={`empty-${i}`}></div>)}
+            {/* Empty days for offset */}
+            {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`}></div>)}
             
             {/* Calendar Days */}
-            {mockDays.map((data) => {
-              const hasData = data.pnl !== null && !data.isWeekend;
-              const isProfit = hasData && data.pnl! > 0;
-              const isLoss = hasData && data.pnl! < 0;
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day = i + 1;
+              const key = `${year}-${month}-${day}`;
+              const data = dailyStats[key];
+              const dateObj = new Date(year, month, day);
+              const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+              const hasData = !!data;
+              const isProfit = hasData && data.pnl > 0;
+              const isLoss = hasData && data.pnl < 0;
               
               return (
                 <div 
-                  key={data.day} 
+                  key={day} 
                   className="calendar-cell relative"
-                  onMouseEnter={() => setHoveredDay(data.day)}
+                  onMouseEnter={() => setHoveredDay(day)}
                   onMouseLeave={() => setHoveredDay(null)}
                   style={{ 
-                    background: data.isWeekend ? 'rgba(255,255,255,0.01)' : isProfit ? 'rgba(16, 185, 129, 0.15)' : isLoss ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255,255,255,0.03)',
+                    background: isProfit ? 'rgba(16, 185, 129, 0.15)' : isLoss ? 'rgba(239, 68, 68, 0.15)' : isWeekend ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.03)',
                     border: isProfit ? '1px solid rgba(16, 185, 129, 0.3)' : isLoss ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255,255,255,0.05)',
                     borderRadius: '12px',
                     padding: '12px',
@@ -80,12 +118,12 @@ export default function Calendar() {
                     justifyContent: 'space-between',
                     cursor: hasData ? 'pointer' : 'default',
                     transition: 'transform 0.2s, box-shadow 0.2s',
-                    transform: hoveredDay === data.day && hasData ? 'scale(1.05)' : 'scale(1)',
-                    boxShadow: hoveredDay === data.day && hasData ? '0 10px 25px -5px rgba(0, 0, 0, 0.5)' : 'none',
-                    zIndex: hoveredDay === data.day ? 10 : 1
+                    transform: hoveredDay === day && hasData ? 'scale(1.05)' : 'scale(1)',
+                    boxShadow: hoveredDay === day && hasData ? '0 10px 25px -5px rgba(0, 0, 0, 0.5)' : 'none',
+                    zIndex: hoveredDay === day ? 10 : 1
                   }}
                 >
-                  <span style={{ fontSize: '0.85rem', color: data.isWeekend ? 'var(--text-secondary)' : 'white' }}>{data.day}</span>
+                  <span style={{ fontSize: '0.85rem', color: isWeekend ? 'var(--text-secondary)' : 'white' }}>{day}</span>
                   
                   {hasData && (
                     <span style={{ 
@@ -93,12 +131,12 @@ export default function Calendar() {
                       fontSize: '1rem',
                       color: isProfit ? 'var(--success-color)' : 'var(--danger-color)'
                     }}>
-                      {isProfit ? '+' : '-'}${Math.abs(data.pnl!).toLocaleString()}
+                      {isProfit ? '+' : '-'}${Math.abs(data.pnl).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </span>
                   )}
 
                   {/* Hover Tooltip */}
-                  {hoveredDay === data.day && hasData && (
+                  {hoveredDay === day && hasData && (
                     <div style={{
                       position: 'absolute',
                       top: 'calc(100% + 8px)',
@@ -164,7 +202,6 @@ export default function Calendar() {
                 <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'white' }}>$2,100 <span style={{fontSize: '0.8rem', color:'var(--text-secondary)', fontWeight: 400}}>buffer</span></span>
               </div>
               <div style={{ width: '100%', height: '12px', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--panel-border)' }}>
-                {/* 400 drawdown taken out of 2500 -> 84% buffer remaining */}
                 <div style={{ width: '84%', height: '100%', background: 'linear-gradient(90deg, #f59e0b, #fbbf24)', boxShadow: '0 0 10px rgba(245, 158, 11, 0.5)' }}></div>
               </div>
             </div>

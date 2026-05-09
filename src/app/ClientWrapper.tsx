@@ -1,12 +1,13 @@
 "use client";
 
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
 export default function ClientWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAuthPage = pathname === '/login' || pathname === '/signup';
-  const [activeAccount, setActiveAccount] = useState('Personal IBKR');
+  const [activeAccount, setActiveAccount] = useState('Exness MT5');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
   const [activeTheme, setActiveTheme] = useState('dark');
@@ -14,6 +15,7 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('tradelens_theme') || 'dark';
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveTheme(savedTheme);
     document.documentElement.setAttribute('data-theme', savedTheme);
   }, []);
@@ -92,7 +94,7 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
           
           {isDropdownOpen && (
             <div style={{ position: 'absolute', top: '100%', left: 0, width: '100%', background: 'var(--bg-color)', border: '1px solid var(--panel-border)', borderRadius: '12px', marginTop: '8px', padding: '8px', zIndex: 20 }}>
-              {['Personal IBKR', 'Apex Prop 50k', 'Topstep 150k'].map(acc => (
+              {['Exness MT5', 'Exness MT4', 'Personal IBKR', 'Apex Prop 50k'].map(acc => (
                 <div 
                   key={acc}
                   onClick={() => { setActiveAccount(acc); setIsDropdownOpen(false); }}
@@ -111,38 +113,42 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
         </div>
 
         <nav className="flex flex-col gap-2">
-          <a href="/" className="nav-item" style={navItemStyle(pathname === '/')}>
+          <Link href="/" className="nav-item" style={navItemStyle(pathname === '/')}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>
             Dashboard
-          </a>
-          <a href="/calendar" className="nav-item" style={navItemStyle(pathname === '/calendar')}>
+          </Link>
+          <Link href="/calendar" className="nav-item" style={navItemStyle(pathname === '/calendar')}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
             Calendar
-          </a>
-          <a href="/journal" className="nav-item" style={navItemStyle(pathname === '/journal')}>
+          </Link>
+          <Link href="/journal" className="nav-item" style={navItemStyle(pathname === '/journal')}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
             Journal
-          </a>
-          <a href="/playbook" className="nav-item" style={navItemStyle(pathname === '/playbook')}>
+          </Link>
+          <Link href="/replay" className="nav-item" style={navItemStyle(pathname === '/replay')}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            Replay Engine
+          </Link>
+          <Link href="/playbook" className="nav-item" style={navItemStyle(pathname === '/playbook')}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
             Playbook
-          </a>
-          <a href="/analytics" className="nav-item" style={navItemStyle(pathname === '/analytics')}>
+          </Link>
+          <Link href="/analytics" className="nav-item" style={navItemStyle(pathname === '/analytics')}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18"></path><path d="m19 9-5 5-4-4-3 3"></path></svg>
             Analytics
-          </a>
-          <a href="/connections" className="nav-item" style={navItemStyle(pathname === '/connections')}>
+          </Link>
+          <Link href="/connections" className="nav-item" style={navItemStyle(pathname === '/connections')}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
             Connections
-          </a>
-          <a href="/preferences" className="nav-item" style={navItemStyle(pathname === '/preferences')}>
+          </Link>
+          <Link href="/preferences" className="nav-item" style={navItemStyle(pathname === '/preferences')}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
             Preferences
-          </a>
-          <a href="/system" className="nav-item" style={navItemStyle(pathname === '/system')}>
+          </Link>
+          <Link href="/system" className="nav-item" style={navItemStyle(pathname === '/system')}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
             System Architecture
-          </a>
+          </Link>
         </nav>
         
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -185,10 +191,10 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
             )}
           </div>
 
-          <a href="/login" className="flex items-center gap-2" style={{ padding: '8px', color: 'var(--text-secondary)', fontSize: '0.9rem', cursor: 'pointer', transition: 'color 0.2s' }}>
+          <Link href="/login" className="flex items-center gap-2" style={{ padding: '8px', color: 'var(--text-secondary)', fontSize: '0.9rem', cursor: 'pointer', transition: 'color 0.2s' }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
             Log Out
-          </a>
+          </Link>
 
         </div>
       </aside>

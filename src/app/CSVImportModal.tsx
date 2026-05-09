@@ -23,7 +23,6 @@ export default function CSVImportModal({ isOpen, onClose, onImportSuccess }: CSV
   const [progress, setProgress] = useState(0);
   const [parsedTrades, setParsedTrades] = useState<ParsedTrade[]>([]);
   const [dragActive, setDragActive] = useState(false);
-  const [isCents, setIsCents] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -39,7 +38,11 @@ export default function CSVImportModal({ isOpen, onClose, onImportSuccess }: CSV
         const rawLines = text.split('\n').map(l => l.trim()).filter(l => l);
         if (rawLines.length < 2) throw new Error("CSV has no data rows");
 
-        // Robust CSV row parser to handle commas inside quotes (e.g. "$1,000.00")
+        // Auto-detect delimiter by counting occurrences in the first few lines
+        const sampleLine = rawLines[0] || '';
+        const delimiter = (sampleLine.match(/;/g)?.length || 0) > (sampleLine.match(/,/g)?.length || 0) ? ';' : ',';
+
+        // Robust CSV row parser
         const parseCSVRow = (str: string) => {
           const result = [];
           let inQuotes = false;
@@ -48,7 +51,7 @@ export default function CSVImportModal({ isOpen, onClose, onImportSuccess }: CSV
             const char = str[i];
             if (char === '"') {
               inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
+            } else if (char === delimiter && !inQuotes) {
               result.push(current);
               current = '';
             } else {
@@ -83,16 +86,25 @@ export default function CSVImportModal({ isOpen, onClose, onImportSuccess }: CSV
           throw new Error("Could not detect trade columns (Date, Symbol, Type, PnL) in CSV.");
         }
 
-        let dateIdx = headers.findIndex(h => h.includes('date') || h.includes('time'));
-        let symbolIdx = headers.findIndex(h => h.includes('symbol') || h.includes('ticker') || h.includes('asset') || h.includes('instrument'));
-        let typeIdx = headers.findIndex(h => h.includes('type') || h.includes('side') || h.includes('action'));
-        let pnlIdx = headers.findIndex(h => h.includes('pnl') || h.includes('profit') || h.includes('net') || h.includes('realized'));
+        let dateIdx = headers.findIndex(h => ['closing_time', 'close_time', 'closed', 'close date', 'date closed'].includes(h));
+        if (dateIdx === -1) dateIdx = headers.findIndex(h => h.includes('date') || h.includes('time'));
+        
+        let symbolIdx = headers.findIndex(h => ['symbol', 'ticker', 'asset', 'instrument'].includes(h));
+        if (symbolIdx === -1) symbolIdx = headers.findIndex(h => h.includes('symbol') || h.includes('ticker') || h.includes('asset') || h.includes('instrument') || h.includes('code'));
+        
+        let typeIdx = headers.findIndex(h => ['type', 'side', 'action', 'direction'].includes(h));
+        if (typeIdx === -1) typeIdx = headers.findIndex(h => h.includes('type') || h.includes('side') || h.includes('action') || h.includes('pos effect'));
+        
+        let pnlIdx = headers.findIndex(h => ['profit', 'pnl', 'net pnl', 'realized pnl', 'net profit', 'realized', 'pl'].includes(h));
+        if (pnlIdx === -1) pnlIdx = headers.findIndex(h => (h.includes('pnl') || h.includes('profit') || h.includes('net') || h.includes('realized') || h.includes('pl') || h.includes('return')) && !h.includes('take'));
 
         // Fallbacks if some columns are vaguely named
         if (dateIdx === -1) dateIdx = 0;
         if (symbolIdx === -1) symbolIdx = Math.max(1, headers.findIndex(h => h === '')); // guess
         if (typeIdx === -1) typeIdx = 2;
-        if (pnlIdx === -1) pnlIdx = headers.length - 1;
+        if (pnlIdx === -1) {
+           throw new Error("Critical Error: Could not locate a PnL column. Please ensure your CSV has a column named 'PnL', 'Profit', 'Net', or 'Realized'.");
+        }
 
         const trades: ParsedTrade[] = [];
         for (let i = headerRowIdx + 1; i < rawLines.length; i++) {
@@ -101,31 +113,67 @@ export default function CSVImportModal({ isOpen, onClose, onImportSuccess }: CSV
           if (!row[dateIdx] && !row[symbolIdx]) continue; // Skip empty summary rows
           
           let rawPnl = row[pnlIdx] || "0";
-          // Handle accounting format e.g. "(1,200.50)" -> "-1200.50"
           if (rawPnl.includes('(') && rawPnl.includes(')')) {
             rawPnl = '-' + rawPnl.replace(/[()]/g, '');
           }
-          const pnlStr = rawPnl.replace(/[^0-9.-]+/g, "");
-          const pnlVal = parseFloat(pnlStr);
-          if (isNaN(pnlVal)) continue; // Skip rows where PnL isn't a number (e.g. subheaders)
+          
+          let pnlClean = rawPnl.replace(/[^0-9.,-]/g, "");
+          const lastDot = pnlClean.lastIndexOf('.');
+          const lastComma = pnlClean.lastIndexOf(',');
+          if (lastComma > lastDot) {
+            pnlClean = pnlClean.replace(/\./g, '').replace(',', '.');
+          } else {
+            pnlClean = pnlClean.replace(/,/g, '');
+          }
+          const pnlVal = parseFloat(pnlClean);
+          
+          if (isNaN(pnlVal)) continue;
 
           let rawType = (row[typeIdx] || "UNKNOWN").toUpperCase();
-          if (rawType.includes('BUY') || rawType === 'B' || rawType === 'BOT') rawType = 'LONG';
-          else if (rawType.includes('SELL') || rawType === 'S' || rawType === 'SLD') rawType = 'SHORT';
+          if (rawType.includes('BUY') || rawType === 'B' || rawType === 'BOT' || rawType.includes('LONG')) rawType = 'LONG';
+          else if (rawType.includes('SELL') || rawType === 'S' || rawType === 'SLD' || rawType.includes('SHORT')) rawType = 'SHORT';
 
           let rawDate = row[dateIdx] || new Date().toISOString().split('T')[0];
-          const parsedDate = new Date(rawDate);
-          if (!isNaN(parsedDate.getTime())) {
-             rawDate = parsedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          let parsedDate = new Date(rawDate);
+          
+          if (isNaN(parsedDate.getTime())) {
+            const parts = rawDate.split(/[/ -]/);
+            if (parts.length >= 3) {
+              if (parts[0].length === 4) {
+                 parsedDate = new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
+              } else {
+                 parsedDate = new Date(`${parts[2]}-${parts[0]}-${parts[1]}`);
+                 if (isNaN(parsedDate.getTime())) {
+                   parsedDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                 }
+              }
+            }
           }
 
-          trades.push({
-            id: `imp-${Date.now()}-${i}`,
-            date: rawDate,
-            symbol: (row[symbolIdx] || "UNKNOWN").toUpperCase(),
-            type: rawType,
-            pnl: isCents ? pnlVal / 100 : pnlVal
-          });
+          if (!isNaN(parsedDate.getTime())) {
+             rawDate = parsedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          } else {
+             rawDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          }
+
+          let rawSymbol = (row[symbolIdx] || "UNKNOWN").trim();
+          
+          // Exness Cent Account Auto-Detection
+          // If the pair ends in a lowercase 'c' (e.g. XAUUSDc), it's a Cent account.
+          let finalPnl = pnlVal;
+          if (rawSymbol.endsWith('c') && !isNaN(pnlVal)) {
+            finalPnl = pnlVal / 100;
+          }
+
+          if (!isNaN(finalPnl)) {
+            trades.push({
+              id: `imp-${Date.now()}-${i}`,
+              date: rawDate,
+              symbol: rawSymbol.toUpperCase(),
+              type: rawType,
+              pnl: finalPnl
+            });
+          }
         }
 
         if (trades.length === 0) {
@@ -227,13 +275,8 @@ export default function CSVImportModal({ isOpen, onClose, onImportSuccess }: CSV
             </div>
             <h2 style={{ fontSize: '1.5rem', marginBottom: '8px' }}>Import Broker Data</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '24px' }}>
-              Upload your CSV export from ThinkOrSwim, Webull, or Interactive Brokers to automatically track your progress.
+              Upload your CSV export from ThinkOrSwim, Webull, MetaTrader, or Interactive Brokers to automatically track your progress.
             </p>
-
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '24px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-              <input type="checkbox" checked={isCents} onChange={(e) => setIsCents(e.target.checked)} style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'var(--accent-color)' }} />
-              My broker exports P&L in cents (e.g., 85050 = $850.50)
-            </label>
 
             <div 
               onDragEnter={handleDrag}

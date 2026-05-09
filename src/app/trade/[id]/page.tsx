@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { createChart, ColorType, CrosshairMode, ISeriesApi, CandlestickSeries, createSeriesMarkers } from 'lightweight-charts';
 import Link from 'next/link';
 
@@ -84,7 +84,7 @@ export default function TradeDetail({ params }: { params: { id: string } }) {
     createSeriesMarkers(candlestickSeries, [
       { time: '2026-05-15', position: 'belowBar', color: '#3b82f6', shape: 'arrowUp', text: 'Buy' },
       { time: '2026-05-19', position: 'aboveBar', color: '#eab308', shape: 'arrowDown', text: 'Exit' },
-    ] as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    ] as unknown as Parameters<typeof createSeriesMarkers>[1]);
 
     chart.timeScale().fitContent();
 

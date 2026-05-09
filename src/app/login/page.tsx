@@ -163,7 +163,7 @@ export default function LoginLandingPage() {
             </button>
 
             <p style={{ textAlign: 'center', marginTop: '32px', fontSize: '0.9rem', color: 'rgba(255,255,255,0.6)' }}>
-              Don't have an account? <Link href="/signup" style={{ color: themeGreen, fontWeight: 500 }}>Sign Up</Link>
+              Don&apos;t have an account? <Link href="/signup" style={{ color: themeGreen, fontWeight: 500 }}>Sign Up</Link>
             </p>
           </div>
         </div>

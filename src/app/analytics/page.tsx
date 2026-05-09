@@ -1,119 +1,89 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
-import { createChart, CrosshairMode, CandlestickSeries } from 'lightweight-charts';
-const pnlByDay = [
-  { day: 'Mon', pnl: 850 },
-  { day: 'Tue', pnl: 1200 },
-  { day: 'Wed', pnl: -450 },
-  { day: 'Thu', pnl: 2100 },
-  { day: 'Fri', pnl: 600 },
-];
+import { useState, useEffect, useMemo } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend, AreaChart, Area, ReferenceLine } from 'recharts';
 
-const winLossData = [
-  { name: 'Winning Trades', value: 68 },
-  { name: 'Losing Trades', value: 32 },
-];
 const COLORS = ['#10b981', '#ef4444'];
 
 export default function Analytics() {
   const [mounted, setMounted] = useState(false);
-  const [isReplaying, setIsReplaying] = useState(false);
-  const [replaySpeed, setReplaySpeed] = useState(1);
-  const [activeAsset, setActiveAsset] = useState('AAPL');
-  
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const seriesRef = useRef<any>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const dataRef = useRef<any[]>([]);
-  const currentIndexRef = useRef(0);
+  const [trades, setTrades] = useState<any[]>([]);
+  const [currency, setCurrency] = useState('$');
 
-  useEffect(() => { setMounted(true); }, []);
-
-  // Generate random data for the simulator based on asset
   useEffect(() => {
-    let currentPrice = activeAsset === 'AAPL' ? 150 : activeAsset === 'TSLA' ? 200 : 450;
-    let time = new Date('2025-01-01').getTime();
-    const data = [];
-    for (let i = 0; i < 300; i++) {
-      const volatility = activeAsset === 'TSLA' ? 5 : 2;
-      const open = currentPrice + (Math.random() - 0.5) * volatility;
-      const high = open + Math.random() * volatility;
-      const low = open - Math.random() * volatility;
-      const close = low + Math.random() * (high - low);
-      currentPrice = close;
-      
-      const dateStr = new Date(time).toISOString().split('T')[0];
-      data.push({ time: dateStr, open, high, low, close });
-      time += 24 * 60 * 60 * 1000;
-    }
-    dataRef.current = data;
-    currentIndexRef.current = 50; // Start with 50 candles visible
-  }, [activeAsset]);
+    setMounted(true);
+    const saved = localStorage.getItem('tradelens_trades_data');
+    if (saved) setTrades(JSON.parse(saved));
+    const savedCurrency = localStorage.getItem('tradelens_currency');
+    if (savedCurrency) setCurrency(savedCurrency);
+  }, []);
 
-  // Chart instantiation
-  useEffect(() => {
-    if (!chartContainerRef.current || !mounted) return;
+  const formatCurrency = (val: number, hideSign = false) => {
+    const absVal = Math.abs(val).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const sign = val < 0 && !hideSign ? '-' : (val > 0 && !hideSign ? '+' : '');
+    return currency === '$' ? `${sign}$${absVal}` : `${sign}${absVal}¢`;
+  };
 
-    const chart = createChart(chartContainerRef.current, {
-      layout: {
-        background: { type: 'solid' as any, color: 'transparent' },
-        textColor: 'rgba(255, 255, 255, 0.6)',
-      },
-      grid: {
-        vertLines: { color: 'rgba(255, 255, 255, 0.05)' },
-        horzLines: { color: 'rgba(255, 255, 255, 0.05)' },
-      },
-      crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderColor: 'rgba(255, 255, 255, 0.1)' },
-      timeScale: { borderColor: 'rgba(255, 255, 255, 0.1)' },
-    });
+  const stats = useMemo(() => {
+    const pnlByDayMap: Record<string, number> = { 'Sun': 0, 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0 };
+    const dateMap: Record<string, number> = {};
+    let wins = 0;
+    let losses = 0;
+    let totalWinAmt = 0;
+    let totalLossAmt = 0;
 
-    const series = chart.addSeries(CandlestickSeries, {
-      upColor: '#10b981', downColor: '#ef4444', borderVisible: false,
-      wickUpColor: '#10b981', wickDownColor: '#ef4444',
-    });
-    seriesRef.current = series;
-
-    series.setData(dataRef.current.slice(0, currentIndexRef.current));
-    chart.timeScale().fitContent();
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      if (!entries || entries.length === 0) return;
-      const { width, height } = entries[0].contentRect;
-      if (width > 0 && height > 0) chart.applyOptions({ width, height });
-    });
-    resizeObserver.observe(chartContainerRef.current);
-
-    return () => {
-      resizeObserver.disconnect();
-      chart.remove();
-    };
-  }, [mounted, activeAsset]);
-
-  // Replay interval logic
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout;
-
-    if (isReplaying) {
-      intervalId = setInterval(() => {
-        if (currentIndexRef.current < dataRef.current.length && seriesRef.current) {
-          const nextCandle = dataRef.current[currentIndexRef.current];
-          seriesRef.current.update(nextCandle);
-          currentIndexRef.current += 1;
-        } else {
-          setIsReplaying(false);
-          clearInterval(intervalId);
+    trades.forEach(t => {
+      const d = new Date(t.date);
+      if (!isNaN(d.getTime())) {
+        const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+        const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        
+        if (pnlByDayMap[dayName] !== undefined) {
+          pnlByDayMap[dayName] += t.pnl;
         }
-      }, 1000 / replaySpeed); 
-    }
+        dateMap[dateStr] = (dateMap[dateStr] || 0) + t.pnl;
+      }
+      
+      if (t.pnl > 0) {
+        wins++;
+        totalWinAmt += t.pnl;
+      } else if (t.pnl < 0) {
+        losses++;
+        totalLossAmt += Math.abs(t.pnl);
+      }
+    });
 
-    return () => {
-      if (intervalId) clearInterval(intervalId);
+    const pnlByDay = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+      .map(day => ({ day, pnl: pnlByDayMap[day] }))
+      .filter(d => (d.day !== 'Sun' && d.day !== 'Sat') || d.pnl !== 0);
+
+    const winLossData = [
+      { name: 'Winning Trades', value: wins || (losses === 0 ? 1 : 0) },
+      { name: 'Losing Trades', value: losses }
+    ];
+
+    let cumulative = 0;
+    const sortedDates = Object.keys(dateMap).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+    const dateWisePnl = sortedDates.map(date => {
+      cumulative += dateMap[date];
+      return { date, daily: dateMap[date], pnl: cumulative };
+    });
+
+    const avgWin = wins > 0 ? totalWinAmt / wins : 0;
+    const avgLoss = losses > 0 ? totalLossAmt / losses : 0;
+    const profitFactor = totalLossAmt > 0 ? (totalWinAmt / totalLossAmt).toFixed(2) : (totalWinAmt > 0 ? '∞' : '0.00');
+    const rrRatio = avgLoss > 0 ? (avgWin / avgLoss).toFixed(2) : (avgWin > 0 ? '∞' : '0.00');
+
+    return {
+      pnlByDay,
+      dateWisePnl,
+      winLossData,
+      avgWin,
+      avgLoss,
+      profitFactor,
+      rrRatio
     };
-  }, [isReplaying, replaySpeed]);
+  }, [trades]);
 
   if (!mounted) return null;
 
@@ -127,24 +97,62 @@ export default function Analytics() {
 
       <div className="dashboard-grid" style={{ marginTop: 0 }}>
         
+        {/* Date Wise Cumulative P&L */}
+        <div className="col-span-12 glass-panel flex flex-col gap-4">
+          <h3 style={{ fontSize: '1.2rem' }}>Cumulative P&L (Date Wise)</h3>
+          <div style={{ flex: 1, minHeight: '300px', width: '100%', padding: '10px 0' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={stats.dateWisePnl} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorDatePnl" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--accent-color)" stopOpacity={0.4}/>
+                    <stop offset="95%" stopColor="var(--accent-color)" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                <XAxis dataKey="date" stroke="var(--text-secondary)" tickLine={false} axisLine={false} minTickGap={20} />
+                <YAxis stroke="var(--text-secondary)" tickLine={false} axisLine={false} tickFormatter={(val) => currency === '$' ? `$${val}` : `${val}¢`} />
+                <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" />
+                <RechartsTooltip 
+                  cursor={{ stroke: 'rgba(255,255,255,0.1)' }}
+                  contentStyle={{ backgroundColor: 'var(--panel-bg)', borderColor: 'var(--panel-border)', borderRadius: '12px', backdropFilter: 'blur(10px)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
+                  formatter={(value: any) => [formatCurrency(Number(value), true), 'Cumulative P&L']}
+                  labelStyle={{ color: 'var(--text-secondary)', marginBottom: '8px' }}
+                />
+                <Area type="monotone" dataKey="pnl" stroke="var(--accent-color)" strokeWidth={3} fillOpacity={1} fill="url(#colorDatePnl)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
         {/* P&L by Day of Week */}
         <div className="col-span-8 glass-panel flex flex-col gap-4">
           <h3 style={{ fontSize: '1.2rem' }}>P&L by Day of Week</h3>
           <div style={{ flex: 1, minHeight: '300px', width: '100%', padding: '10px 0' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={pnlByDay} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+              <BarChart data={stats.pnlByDay} margin={{ top: 20, right: 30, left: -10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="barWin" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--success-color)" stopOpacity={1}/>
+                    <stop offset="100%" stopColor="var(--success-color)" stopOpacity={0.4}/>
+                  </linearGradient>
+                  <linearGradient id="barLoss" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--danger-color)" stopOpacity={1}/>
+                    <stop offset="100%" stopColor="var(--danger-color)" stopOpacity={0.4}/>
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                 <XAxis dataKey="day" stroke="var(--text-secondary)" tickLine={false} axisLine={false} />
-                <YAxis stroke="var(--text-secondary)" tickLine={false} axisLine={false} tickFormatter={(val) => `$${val}`} />
+                <YAxis stroke="var(--text-secondary)" tickLine={false} axisLine={false} tickFormatter={(val) => currency === '$' ? `$${val}` : `${val}¢`} />
                 <RechartsTooltip 
-                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                  contentStyle={{ backgroundColor: 'var(--panel-bg)', borderColor: 'var(--panel-border)', borderRadius: '8px', backdropFilter: 'blur(10px)' }}
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(value: any) => [`$${value}`, 'P&L']}
+                  cursor={{ fill: 'rgba(255,255,255,0.02)' }}
+                  contentStyle={{ backgroundColor: 'var(--panel-bg)', borderColor: 'var(--panel-border)', borderRadius: '12px', backdropFilter: 'blur(10px)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
+                  formatter={(value: any) => [formatCurrency(Number(value), true), 'Net P&L']}
+                  labelStyle={{ color: 'var(--text-secondary)', marginBottom: '8px' }}
                 />
-                <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
-                  {pnlByDay.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.pnl > 0 ? 'var(--success-color)' : 'var(--danger-color)'} />
+                <Bar dataKey="pnl" radius={[6, 6, 6, 6]} barSize={40}>
+                  {stats.pnlByDay.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.pnl >= 0 ? 'url(#barWin)' : 'url(#barLoss)'} />
                   ))}
                 </Bar>
               </BarChart>
@@ -159,24 +167,26 @@ export default function Analytics() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={winLossData}
+                  data={stats.winLossData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
+                  innerRadius={65}
+                  outerRadius={90}
+                  paddingAngle={8}
                   dataKey="value"
-                  stroke="none"
+                  stroke="rgba(0,0,0,0.2)"
+                  strokeWidth={2}
                 >
-                  {winLossData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  {stats.winLossData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} style={{ filter: `drop-shadow(0px 0px 10px ${COLORS[index % COLORS.length]}40)` }} />
                   ))}
                 </Pie>
                 <RechartsTooltip 
-                  contentStyle={{ backgroundColor: 'var(--panel-bg)', borderColor: 'var(--panel-border)', borderRadius: '8px' }}
-                  itemStyle={{ color: 'white' }}
+                  contentStyle={{ backgroundColor: 'var(--panel-bg)', borderColor: 'var(--panel-border)', borderRadius: '12px', backdropFilter: 'blur(10px)' }}
+                  itemStyle={{ color: 'white', fontWeight: 600 }}
+                  formatter={(value: any) => [`${value} Trades`, 'Count']}
                 />
-                <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -188,85 +198,28 @@ export default function Analytics() {
           <div className="dashboard-grid" style={{ marginTop: 0, gap: '16px' }}>
             <div className="col-span-3" style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Profit Factor</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#c084fc' }}>2.14</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#c084fc' }}>{stats.profitFactor}</div>
             </div>
 
             <div className="col-span-3" style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Risk / Reward Ratio</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>2.2 : 1</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>{stats.rrRatio} : 1</div>
             </div>
             
-            <div className="col-span-3" style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Average Winning Trade</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--success-color)' }}>+$420.50</div>
+            <div className="col-span-3" style={{ background: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>Average Winning Trade</div>
+              <div style={{ fontSize: '1.7rem', fontWeight: 700, color: 'var(--success-color)' }}>
+                {formatCurrency(stats.avgWin)}
+              </div>
             </div>
             
-            <div className="col-span-3" style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Average Losing Trade</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--danger-color)' }}>-$190.25</div>
+            <div className="col-span-3" style={{ background: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>Average Losing Trade</div>
+              <div style={{ fontSize: '1.7rem', fontWeight: 700, color: 'var(--danger-color)' }}>
+                {formatCurrency(stats.avgLoss)}
+              </div>
             </div>
           </div>
-        </div>
-
-        {/* Trade Replay Simulator */}
-        <div className="col-span-12 glass-panel flex flex-col" style={{ padding: 0, overflow: 'hidden', minHeight: '600px', marginTop: '24px' }}>
-          
-          <div className="flex items-center justify-between" style={{ padding: '16px 24px', borderBottom: '1px solid var(--panel-border)', background: 'var(--panel-bg)' }}>
-            <div>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 600 }}>Trade Replay Simulator</h3>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Backtest your edge in a simulated live environment</p>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <select 
-                value={activeAsset} 
-                onChange={(e) => { setActiveAsset(e.target.value); setIsReplaying(false); }}
-                style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--panel-border)', padding: '6px 12px', borderRadius: '6px', outline: 'none' }}
-              >
-                <option value="AAPL">AAPL (Apple Inc)</option>
-                <option value="TSLA">TSLA (Tesla Inc)</option>
-                <option value="SPY">SPY (S&P 500 ETF)</option>
-              </select>
-
-              <div style={{ width: '1px', height: '24px', background: 'var(--panel-border)' }}></div>
-
-              <select 
-                value={replaySpeed} 
-                onChange={(e) => setReplaySpeed(Number(e.target.value))}
-                style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--panel-border)', padding: '6px 12px', borderRadius: '6px', outline: 'none' }}
-              >
-                <option value="1">1x Speed</option>
-                <option value="2">2x Speed</option>
-                <option value="5">5x Speed</option>
-                <option value="10">10x Speed</option>
-              </select>
-              
-              <button 
-                onClick={() => setIsReplaying(!isReplaying)}
-                className="btn" 
-                style={{ 
-                  background: isReplaying ? 'var(--danger-glow)' : 'var(--accent-glow)',
-                  color: isReplaying ? 'var(--danger-color)' : 'var(--accent-color)',
-                  border: isReplaying ? '1px solid var(--danger-color)' : '1px solid var(--accent-color)',
-                  display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px' 
-                }}
-              >
-                {isReplaying ? (
-                  <>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
-                    Pause
-                  </>
-                ) : (
-                  <>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                    Play
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          <div ref={chartContainerRef} style={{ flex: 1, width: '100%', position: 'relative' }}></div>
         </div>
 
       </div>

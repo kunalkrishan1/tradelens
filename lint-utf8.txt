@@ -1,0 +1,132 @@
+﻿
+> project1@0.1.0 lint
+> eslint
+
+
+D:\project1\src\app\ClientWrapper.tsx
+   17:5   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\project1\src\app\ClientWrapper.tsx:17:5
+  15 |   useEffect(() => {
+  16 |     const savedTheme = localStorage.getItem('tradelens_theme') || 'dark';
+> 17 |     setActiveTheme(savedTheme);
+     |     ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  18 |     document.documentElement.setAttribute('data-theme', savedTheme);
+  19 |   }, []);
+  20 |  react-hooks/set-state-in-effect
+  114:11  error  Do not use an `<a>` element to navigate to `/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              @next/next/no-html-link-for-pages
+
+D:\project1\src\app\analytics\page.tsx
+  33:21  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\project1\src\app\analytics\page.tsx:33:21
+  31 |   const currentIndexRef = useRef(0);
+  32 |
+> 33 |   useEffect(() => { setMounted(true); }, []);
+     |                     ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  34 |
+  35 |   // Generate random data for the simulator based on asset
+  36 |   useEffect(() => {  react-hooks/set-state-in-effect
+  62:40  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              @typescript-eslint/no-explicit-any
+
+D:\project1\src\app\journal\page.tsx
+  19:40  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+  24:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\project1\src\app\journal\page.tsx:24:7
+  22 |     const saved = localStorage.getItem('tradelens_trades_data');
+  23 |     if (saved) {
+> 24 |       setTrades(JSON.parse(saved));
+     |       ^^^^^^^^^ Avoid calling setState() directly within an effect
+  25 |     }
+  26 |   }, []);
+  27 |  react-hooks/set-state-in-effect
+
+D:\project1\src\app\login\page.tsx
+  166:18  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+D:\project1\src\app\page.tsx
+    8:49  warning  'PolarRadiusAxis' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+   16:7   warning  'data' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+   30:7   warning  'gaugeData' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+   49:7   warning  'pfData' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+  263:85  warning  'grossLossNum' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+  309:9   warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+  310:26  error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\project1\src\app\page.tsx:310:26
+  308 |         const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  309 |         // eslint-disable-next-line react-hooks/exhaustive-deps
+> 310 |         const dailyPnl = Math.random() > 0.4 ? Math.floor(Math.random() * 800) : -Math.floor(Math.random() * 600);
+      |                          ^^^^^^^^^^^^^ Cannot call impure function
+  311 |         cumulative += dailyPnl;
+  312 |         return { date: dateStr, daily: dailyPnl, pnl: cumulative };
+  313 |       });                                                                                                                                                                                    react-hooks/purity
+  310:59  error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\project1\src\app\page.tsx:310:59
+  308 |         const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  309 |         // eslint-disable-next-line react-hooks/exhaustive-deps
+> 310 |         const dailyPnl = Math.random() > 0.4 ? Math.floor(Math.random() * 800) : -Math.floor(Math.random() * 600);
+      |                                                           ^^^^^^^^^^^^^ Cannot call impure function
+  311 |         cumulative += dailyPnl;
+  312 |         return { date: dateStr, daily: dailyPnl, pnl: cumulative };
+  313 |       });                                                                                                                                                   react-hooks/purity
+  310:94  error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\project1\src\app\page.tsx:310:94
+  308 |         const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  309 |         // eslint-disable-next-line react-hooks/exhaustive-deps
+> 310 |         const dailyPnl = Math.random() > 0.4 ? Math.floor(Math.random() * 800) : -Math.floor(Math.random() * 600);
+      |                                                                                              ^^^^^^^^^^^^^ Cannot call impure function
+  311 |         cumulative += dailyPnl;
+  312 |         return { date: dateStr, daily: dailyPnl, pnl: cumulative };
+  313 |       });                                                                                                                react-hooks/purity
+  380:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\project1\src\app\page.tsx:380:7
+  378 |     const savedPreset = localStorage.getItem('tradelens_dashboard_preset_v2');
+  379 |     if (savedPreset) {
+> 380 |       setActiveLayoutName(savedPreset);
+      |       ^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  381 |     }
+  382 |     if (savedLayout) {
+  383 |       try {  react-hooks/set-state-in-effect
+  385:16  warning  'e' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+
+D:\project1\src\app\trade\[id]\page.tsx
+  87:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+Γ£û 19 problems (12 errors, 7 warnings)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+
