@@ -19,7 +19,7 @@ TradeLens completely eliminates the need for manual data entry through multiple 
 
 ### C. CSV Parsing Engine
 - **Universal Broker Support:** Robust CSV ingestion capable of parsing standard MetaTrader history reports.
-- **Currency Normalization:** Handles various broker export formats, including Cent and Dollar variations.
+- **Currency Normalization:Handles various broker export formats, including Cent and Dollar variations.
 
 ---
 

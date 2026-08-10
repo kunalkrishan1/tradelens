@@ -1,15 +1,14 @@
 "use client";
 
-import { usePathname } from 'next/navigation';
-import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation'
+import Link from 'next/link'
+import { useState, useEffect } from 'react'
 
 export default function ClientWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAuthPage = pathname === '/login' || pathname === '/signup';
   const [activeAccount, setActiveAccount] = useState('Exness MT5');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  
   const [activeTheme, setActiveTheme] = useState('dark');
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
 
