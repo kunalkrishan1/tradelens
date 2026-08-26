@@ -1,12 +1,13 @@
+'use client';
+
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-
 type Trade = {
   id: string;
   symbol: string;
   side?: string;
-  date?: string;
+  date?: string;git 
   open?: string;
   pnl?: number;
   tags?: string[];
@@ -24,7 +25,7 @@ const formatCurrency = (value: number) => `${value < 0 ? '-' : '+'}$${Math.abs(v
 
 export default function HomePage() {
   const [trades, setTrades] = useState<Trade[]>(fallbackTrades);
-  const [mounted, setMounted] = useState(false);GI
+  const [mounted, setMounted] = useState(false);git 
 
   useEffect(() => {
     const savedTrades = localStorage.getItem('tradelens_trades_data');
