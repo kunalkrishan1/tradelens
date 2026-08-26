@@ -7,7 +7,7 @@ type Trade = {
   id: string;
   symbol: string;
   side?: string;
-  date?: string;git 
+  date?: string; 
   open?: string;
   pnl?: number;
   tags?: string[];
