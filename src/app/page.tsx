@@ -25,7 +25,7 @@ const formatCurrency = (value: number) => `${value < 0 ? '-' : '+'}$${Math.abs(v
 
 export default function HomePage() {
   const [trades, setTrades] = useState<Trade[]>(fallbackTrades);
-  const [mounted, setMounted] = useState(false);git 
+  const [mounted, setMounted] = useState(false); 
 
   useEffect(() => {
     const savedTrades = localStorage.getItem('tradelens_trades_data');
