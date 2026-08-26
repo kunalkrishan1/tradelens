@@ -11,5 +11,5 @@ export function proxy(request: NextRequest) {
       headers: requestHeaders,
     },
   })
-}git
+}
 
