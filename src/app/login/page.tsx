@@ -2,10 +2,40 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoginLandingPage() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const themeGreen = '#22c55e'; // Bright vibrant green from screenshot
+
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { login } = useAuth();
+  const router = useRouter();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setIsSubmitting(true);
+
+    const result = await login({
+      username: identifier,
+      password,
+    });
+
+    setIsSubmitting(false);
+
+    if (result.success) {
+      setIsLoginModalOpen(false);
+      router.push('/dashboard');
+    } else {
+      setErrorMessage(result.message || 'Invalid credentials.');
+    }
+  };
 
   return (
     <div className="w-full fade-in flex flex-col items-center" style={{ minHeight: '100vh', background: '#0a0a0a', color: 'white', animation: 'fadeIn 0.5s ease-out', overflowX: 'hidden' }}>
@@ -126,12 +156,26 @@ export default function LoginLandingPage() {
             </div>
 
             <h1 style={{ fontSize: '1.25rem', marginBottom: '8px', textAlign: 'center', width: '100%' }}>Welcome Back</h1>
-            <p style={{ color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginBottom: '32px', fontSize: '0.9rem' }}>Log in to your professional trading journal</p>
+            <p style={{ color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginBottom: '24px', fontSize: '0.9rem' }}>Log in to your professional trading journal</p>
 
-            <form className="flex flex-col gap-5 w-full" onSubmit={(e) => { e.preventDefault(); window.location.href = '/'; }}>
+            {errorMessage && (
+              <div style={{ width: '100%', padding: '10px 14px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.85rem', marginBottom: '16px', textAlign: 'center' }}>
+                {errorMessage}
+              </div>
+            )}
+
+            <form className="flex flex-col gap-5 w-full" onSubmit={handleSubmit}>
               <div className="flex flex-col gap-2">
-                <label style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>Email Address</label>
-                <input type="email" className="input-field" placeholder="trader@example.com" style={{ background: 'rgba(0,0,0,0.4)' }} required />
+                <label style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>Username or Email</label>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  placeholder="trader@example.com or admin" 
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  style={{ background: 'rgba(0,0,0,0.4)' }} 
+                  required 
+                />
               </div>
 
               <div className="flex flex-col gap-2">
@@ -139,16 +183,32 @@ export default function LoginLandingPage() {
                   <label style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>Password</label>
                   <a href="#" style={{ fontSize: '0.8rem', color: themeGreen }}>Forgot password?</a>
                 </div>
-                <input type="password" className="input-field" placeholder="••••••••" style={{ background: 'rgba(0,0,0,0.4)' }} required />
+                <input 
+                  type="password" 
+                  className="input-field" 
+                  placeholder="••••••••" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={{ background: 'rgba(0,0,0,0.4)' }} 
+                  required 
+                />
               </div>
 
               <div className="flex items-center gap-2 mt-2">
-                <input type="checkbox" id="remember" />
+                <input type="checkbox" id="remember" defaultChecked />
                 <label htmlFor="remember" style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>Remember for 30 days</label>
               </div>
 
-              <button type="submit" style={{ background: themeGreen, color: '#000', padding: '12px', borderRadius: '8px', fontWeight: 600, fontSize: '1rem', border: 'none', cursor: 'pointer', marginTop: '8px', width: '100%' }}>
-                Sign In
+              <button 
+                type="submit" 
+                disabled={isSubmitting}
+                style={{ 
+                  background: themeGreen, color: '#000', padding: '12px', borderRadius: '8px', 
+                  fontWeight: 600, fontSize: '1rem', border: 'none', cursor: isSubmitting ? 'not-allowed' : 'pointer', 
+                  marginTop: '8px', width: '100%', opacity: isSubmitting ? 0.7 : 1 
+                }}
+              >
+                {isSubmitting ? 'Signing In...' : 'Sign In'}
               </button>
             </form>
 

@@ -23,12 +23,13 @@ export const config = {
 }
 
 export function proxy(request: NextRequest) {
+  const isMaintenanceMode = process.env.MAINTENANCE_MODE === 'true'
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set('x-pathname', request.nextUrl.pathname)
 
   const pathname = request.nextUrl.pathname
 
-  if (isExemptPath(pathname)) {
+  if (!isMaintenanceMode || isExemptPath(pathname)) {
     return NextResponse.next({
       request: {
         headers: requestHeaders,
