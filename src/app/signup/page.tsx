@@ -1,8 +1,46 @@
 "use client";
 
+import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 export default function Signup() {
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { register } = useAuth();
+  const router = useRouter();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setIsSubmitting(true);
+
+    const generatedUsername = username.trim() || email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '');
+
+    const result = await register({
+      username: generatedUsername,
+      email,
+      password,
+      firstName,
+      lastName,
+    });
+
+    setIsSubmitting(false);
+
+    if (result.success) {
+      router.push('/dashboard');
+    } else {
+      setErrorMessage(result.message || 'Registration failed.');
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center w-full max-w-md fade-in" style={{ animation: 'fadeIn 0.5s ease-out' }}>
       
@@ -18,34 +56,84 @@ export default function Signup() {
 
       <div className="glass-panel w-full" style={{ padding: '40px' }}>
         <h1 style={{ fontSize: '1.5rem', marginBottom: '8px', textAlign: 'center' }}>Create an Account</h1>
-        <p style={{ color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '32px', fontSize: '0.9rem' }}>Start tracking your edge and protecting your psychology</p>
+        <p style={{ color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '24px', fontSize: '0.9rem' }}>Start tracking your edge and protecting your psychology</p>
 
-        <form className="flex flex-col gap-5" onSubmit={(e) => { e.preventDefault(); window.location.href = '/'; }}>
+        {errorMessage && (
+          <div style={{ width: '100%', padding: '10px 14px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.85rem', marginBottom: '16px', textAlign: 'center' }}>
+            {errorMessage}
+          </div>
+        )}
+
+        <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
           
           <div className="flex gap-4">
             <div className="flex flex-col gap-2" style={{ flex: 1 }}>
               <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>First Name</label>
-              <input type="text" className="input-field" placeholder="John" required />
+              <input 
+                type="text" 
+                className="input-field" 
+                placeholder="John" 
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                required 
+              />
             </div>
             <div className="flex flex-col gap-2" style={{ flex: 1 }}>
               <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Last Name</label>
-              <input type="text" className="input-field" placeholder="Doe" required />
+              <input 
+                type="text" 
+                className="input-field" 
+                placeholder="Doe" 
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                required 
+              />
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Username (Optional)</label>
+            <input 
+              type="text" 
+              className="input-field" 
+              placeholder="trader_pro" 
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
           </div>
 
           <div className="flex flex-col gap-2">
             <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Email Address</label>
-            <input type="email" className="input-field" placeholder="trader@example.com" required />
+            <input 
+              type="email" 
+              className="input-field" 
+              placeholder="trader@example.com" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required 
+            />
           </div>
 
           <div className="flex flex-col gap-2">
             <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Password</label>
-            <input type="password" className="input-field" placeholder="••••••••" required />
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Must be at least 8 characters long.</span>
+            <input 
+              type="password" 
+              className="input-field" 
+              placeholder="••••••••" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required 
+            />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Must be at least 6 characters long.</span>
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center', padding: '12px', marginTop: '8px' }}>
-            Create Account
+          <button 
+            type="submit" 
+            disabled={isSubmitting}
+            className="btn btn-primary" 
+            style={{ justifyContent: 'center', padding: '12px', marginTop: '8px', opacity: isSubmitting ? 0.7 : 1, cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
+          >
+            {isSubmitting ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
 
